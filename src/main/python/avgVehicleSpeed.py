@@ -4,25 +4,30 @@ import os
 import json
 import pyspark
 
+def getVehicleSpeed(row):
+    try:
+        speed = [float(row[columnToIndex['avgVehicleSpeed']])]
+    except:
+        speed = []
+    return speed
+
 # add actual job
 def doJob(rdd):
-    print('traffic job')
+    print('avg speed job')
     #Map column names to column indices
     columns = ['measurementSiteReference','measurementSiteVersion','index','periodStart','periodEnd','numberOfIncompleteInputs','numberOfInputValuesused','minutesUsed','computationalMethod','standardDeviation','supplierCalculatedDataQuality','sCDQ_Low','sCDQ_SD','number_of_sCDQ','dataError','travelTimeType','avgVehicleFlow','avgVehicleSpeed','avgTravelTime','computationMethod','measurementEquipmentTypeUsed','measurementSiteName1','measurementSiteName2','measurementSiteNumberOfLanes', 'measurementSiteIdentification','measurementSide','accuracy','period','specificLane','specificVehicleCharacteristics','startLocatieForDisplayLat','startLocatieForDisplayLong','LocationCountryCode','LocationTableNumber','LocationTableVersion','alertCDirectionCoded','specificLocation','offsetDistance','LOC_TYPE','LOC_DES','ROADNUMBER','ROADNAME,FIRST_NAME,SECND_NAME','messageType','publicationTime','deducedNoTrafficMinutes','carriageway']
 
     columnToIndex = {}
     for index, column in enumerate(columns):
-        columnToIndex[column] = index
-        #print(columnToIndex)
+      columnToIndex[column] = index
+      #print(columnToIndex)
 
-    #Filter rows with data errors
-    clean = rdd.map(lambda line: line.split(',')).filter(lambda row: len(row) > 18 and row[columnToIndex['dataError']] != '1')
-    #total = clean.count()
-    usable = clean.filter(lambda row: row[columnToIndex['avgVehicleSpeed']] != '' and row[columnToIndex['avgVehicleSpeed']] != 'NA')
-    print("Row count with avgVehicleSpeed: ", usable.count())
+    total = rdd.count()
+    avgSpeed = rdd.flatMap(getVehicleSpeed).reduce(lambda v1, v2: v1 + v2) / total
+    #print(rdd.first())
+    print('Average vehicle speed', avgSpeed)
 
-
-    return usable
+    return rdd
 
 def main():
   # parse arguments
