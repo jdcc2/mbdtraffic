@@ -23,22 +23,23 @@ def trafficSpeedXMLToCSV(root, outfile):
     #soap:envelope -> soap:body -> exchange -> payloadPublication
     for child in root[0][0][1].findall('{http://datex2.eu/schema/2/2_0}siteMeasurements'):
         #Extract the measurementSiteReference.id and measurementTimeDefault content
-        msmSite = child.find('{*}measurementSiteReference').attrib['id']
-        msmTime = child.find('{*}measurementTimeDefault').text
-        msvs = child.findall('{*}measuredValue')
+        print(child.find('{http://datex2.eu/schema/2/2_0}measurementSiteReference'))
+        msmSite = child.find('{http://datex2.eu/schema/2/2_0}measurementSiteReference').attrib['id']
+        msmTime = child.find('{http://datex2.eu/schema/2/2_0}measurementTimeDefault').text
+        msvs = child.findall('{http://datex2.eu/schema/2/2_0}measuredValue')
         for msv in msvs:
-            msv2 = msv.find('{*}measuredValue')
-            bv = msv2.find('{*}basicData')
+            msv2 = msv.find('{http://datex2.eu/schema/2/2_0}measuredValue')
+            bv = msv2.find('{http://datex2.eu/schema/2/2_0}basicData')
             type = bv.attrib['{http://www.w3.org/2001/XMLSchema-instance}type']
             value = ''
             error = False
             if type == 'TrafficSpeed':
-                value = bv.find('{*}averageVehicleSpeed').find('{*}speed').text
+                value = bv.find('{http://datex2.eu/schema/2/2_0}averageVehicleSpeed').find('{http://datex2.eu/schema/2/2_0}speed').text
             elif type == 'TrafficFlow':
-                dataError = bv.find('{*}vehicleFlow').find('{*}dataError')
+                dataError = bv.find('{http://datex2.eu/schema/2/2_0}vehicleFlow').find('{http://datex2.eu/schema/2/2_0}dataError')
                 error = not dataError is None and dataError.text == 'true'
                 if not error:
-                    value = bv.find('{*}vehicleFlow').find('{*}vehicleFlowRate').text
+                    value = bv.find('{http://datex2.eu/schema/2/2_0}vehicleFlow').find('{http://datex2.eu/schema/2/2_0}vehicleFlowRate').text
             if not error:
                 outfile.write(','.join([msmSite, msmTime, type, value]) + '\n')
                 success += 1
