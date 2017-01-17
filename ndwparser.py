@@ -1,8 +1,19 @@
 #http://www.diveintopython3.net/xml.html
 
 import click
+import requests
+import io
+import os
 #import xml.etree.ElementTree as etree
 from lxml import etree
+import time
+import gzip
+#For HTTP last modified header parsing
+import email.utils as eut
+
+@click.group()
+def cli():
+    pass
 
 #Take a etree xml root and write valid ndw data to a csv row in file
 def trafficSpeedXMLToCSV(root, outfile):
@@ -36,14 +47,43 @@ def trafficSpeedXMLToCSV(root, outfile):
     print('Number of lines produced: {}'.format(success))
     print('Number of measurements with omitted due to error: {}'.format(errors))
 
+
+@click.command()
+@click.option('--interval', default=60, help='fetch interval')
+@click.option('--outputdir', default='./', help='directory to write the csv files to')
+def fetch(interval, outputdir):
+    print('Fetching traffic data every {} seconds'.format(interval))
+    lastModified = None
+
+    while(True):
+        r = requests.get('http://opendata.ndw.nu/trafficspeed.xml.gz')
+        if(r.status_code) == 200:
+            if r.headers['Last-Modified'] == lastModified:
+                print('No new traffic data')
+            else:
+                lastModified = r.headers['Last-Modified']
+                f = io.BytesIO(r.content)
+                gzipped = gzip.GzipFile(filename=None, mode=None, compresslevel=9, fileobj=f, mtime=None)
+                #unzipped = gzip.decompress(r.content)
+                unzipped = gzipped.read()
+                date = list(eut.parsedate(lastModified))
+                outputfile = os.path.join(outputdir, 'ndw_trafficspeed_{}_{}_{}_{}_{}_{}.csv'.format(*date[:6]))
+                with open(outputfile, 'w') as out:
+                    trafficSpeedXMLToCSV(etree.fromstring(unzipped), out)
+        else:
+            print('Error status code')
+        time.sleep(interval)
+
 @click.command()
 @click.argument('xmlinput')
 @click.argument('csvoutput')
-def run(xmlinput, csvoutput):
+def convert(xmlinput, csvoutput):
     tree = etree.parse(xmlinput)
     root = tree.getroot()
     with open(csvoutput, 'w') as outfile:
         trafficSpeedXMLToCSV(root, outfile)
 
 if __name__ == "__main__":
-    run()
+    cli.add_command(convert)
+    cli.add_command(fetch)
+    cli()
