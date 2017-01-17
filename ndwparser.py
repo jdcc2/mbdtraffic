@@ -13,6 +13,7 @@ import time
 import gzip
 #For HTTP last modified header parsing
 import email.utils as eut
+from subprocess import Popen, PIPE
 
 @click.group()
 def cli():
@@ -54,7 +55,8 @@ def trafficSpeedXMLToCSV(root, outfile):
 @click.command()
 @click.option('--interval', default=60, help='fetch interval')
 @click.option('--outputdir', default='./', help='directory to write the csv files to')
-def fetch(interval, outputdir):
+@click.option('--hdfs', default=False, is_flag=True, help='write the file hdfs in outputdir')
+def fetch(interval, outputdir, hdfs):
     print('Fetching traffic data every {} seconds'.format(interval))
     lastModified = None
 
@@ -71,8 +73,18 @@ def fetch(interval, outputdir):
                 unzipped = gzipped.read()
                 date = list(eut.parsedate(lastModified))
                 outputfile = os.path.join(outputdir, 'ndw_trafficspeed_{}_{}_{}_{}_{}_{}.csv'.format(*date[:6]))
-                with open(outputfile, 'w') as out:
-                    trafficSpeedXMLToCSV(etree.fromstring(unzipped), out)
+                if hdfs:
+                    with io.BytesIO() as out:
+                        p = Popen(["hdfs", "dfs", "-put", "-", outputfile], stdin=PIPE)
+                        trafficSpeedXMLToCSV(etree.fromstring(unzipped), p.stdin)
+                        p.stdin.close()
+                        p.wait()
+                        #p.flush()
+                else:
+
+                    with open(outputfile, 'w') as out:
+                        trafficSpeedXMLToCSV(etree.fromstring(unzipped), out)
+
         else:
             print('Error status code')
         time.sleep(interval)
