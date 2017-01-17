@@ -4,8 +4,11 @@ import click
 import requests
 import io
 import os
-#import xml.etree.ElementTree as etree
-from lxml import etree
+#lxml's etree implemenation is faster but not always available
+try:
+    from lxml import etree
+except:
+    import xml.etree.ElementTree as etree
 import time
 import gzip
 #For HTTP last modified header parsing
