@@ -21,7 +21,12 @@ def doJob(rdd):
     for index, column in enumerate(columns):
       columnToIndex[column] = index
       #print(columnToIndex)
-
+    fifteen = rdd.take(15)
+    for row in fifteen:
+        print(row)
+        print(row[columnToIndex['avgVehicleSpeed']])
+    print(fifteen[2])
+    print(fifteen[2][columnToIndex['avgVehicleSpeed']])
     total = rdd.count()
     avgSpeed = rdd.flatMap(getVehicleSpeed).reduce(lambda v1, v2: v1 + v2) / total
     #print(rdd.first())
