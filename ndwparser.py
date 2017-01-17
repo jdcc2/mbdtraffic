@@ -26,7 +26,6 @@ def trafficSpeedXMLToCSV(root, outfile):
     #soap:envelope -> soap:body -> exchange -> payloadPublication
     for child in root[0][0][1].findall('{http://datex2.eu/schema/2/2_0}siteMeasurements'):
         #Extract the measurementSiteReference.id and measurementTimeDefault content
-        print(child.find('{http://datex2.eu/schema/2/2_0}measurementSiteReference'))
         msmSite = child.find('{http://datex2.eu/schema/2/2_0}measurementSiteReference').attrib['id']
         msmTime = child.find('{http://datex2.eu/schema/2/2_0}measurementTimeDefault').text
         msvs = child.findall('{http://datex2.eu/schema/2/2_0}measuredValue')
