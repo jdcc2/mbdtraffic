@@ -52,6 +52,63 @@ def trafficSpeedXMLToCSV(root, outfile):
     print('Number of lines produced: {}'.format(success))
     print('Number of measurements with omitted due to error: {}'.format(errors))
 
+def measurementSiteXMLToDict(root):
+    """
+    Parse the measurement site XML from the NDW open data and return a dict structured as follows:
+    { <siteID> :    {
+                        <measurementCharacteristicIndex>: {
+                            [siteData]
+                            [characteristicData]
+                        }
+                    }
+
+    }
+
+    """
+    #print(root[0][0][1].tag)
+    #print(root[0][0][1].findall('{*}measurementSiteTable')[0].tag)
+    #Extract the measurement site table (file assumed to contain only one) from the payload element
+    output = {}
+    msmSiteTable = root[0][0][1].find('{http://datex2.eu/schema/2/2_0}measurementSiteTable')
+    for msmSiteRecord in msmSiteTable.findall('{http://datex2.eu/schema/2/2_0}measurementSiteRecord'):
+        siteID = msmSiteRecord.attrib['id']
+        msmSiteName = msm
+        print(msmSiteRecord.tag, msmSiteRecord.attrib)
+    #for child in root[0][0][1].findall('{http://datex2.eu/schema/2/2_0}siteMeasurements'):
+        #Extract the measurementSiteReference.id and measurementTimeDefault content
+        #msmSite = child.find('{http://datex2.eu/schema/2/2_0}measurementSiteReference').attrib['id']
+        #msmTime = child.find('{http://datex2.eu/schema/2/2_0}measurementTimeDefault').text
+        #msvs = child.findall('{http://datex2.eu/schema/2/2_0}measuredValue')
+    #     for msv in msvs:
+    #         msv2 = msv.find('{http://datex2.eu/schema/2/2_0}measuredValue')
+    #         bv = msv2.find('{http://datex2.eu/schema/2/2_0}basicData')
+    #         type = bv.attrib['{http://www.w3.org/2001/XMLSchema-instance}type']
+    #         value = ''
+    #         error = False
+    #         if type == 'TrafficSpeed':
+    #             value = bv.find('{http://datex2.eu/schema/2/2_0}averageVehicleSpeed').find('{http://datex2.eu/schema/2/2_0}speed').text
+    #         elif type == 'TrafficFlow':
+    #             dataError = bv.find('{http://datex2.eu/schema/2/2_0}vehicleFlow').find('{http://datex2.eu/schema/2/2_0}dataError')
+    #             error = not dataError is None and dataError.text == 'true'
+    #             if not error:
+    #                 value = bv.find('{http://datex2.eu/schema/2/2_0}vehicleFlow').find('{http://datex2.eu/schema/2/2_0}vehicleFlowRate').text
+    #         if not error:
+    #             outfile.write(','.join([msmSite, msmTime, type, value]) + '\n')
+    #             success += 1
+    #         else:
+    #             errors += 1
+    # print('Number of lines produced: {}'.format(success))
+    # print('Number of measurements with omitted due to error: {}'.format(errors))
+    return output
+
+@click.command()
+@click.argument('xmlinput')
+def msmconvert(xmlinput):
+    tree = etree.parse(xmlinput)
+    root = tree.getroot()
+    #with open(csvoutput, 'w') as outfile:
+    print(measurementSiteXMLToDict(root))
+
 
 @click.command()
 @click.option('--interval', default=60, help='fetch interval')
@@ -101,5 +158,6 @@ def convert(xmlinput, csvoutput):
 
 if __name__ == "__main__":
     cli.add_command(convert)
+    cli.add_command(msmconvert)
     cli.add_command(fetch)
     cli()
