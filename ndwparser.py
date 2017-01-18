@@ -30,8 +30,8 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
 
     #measurementSpecificCharacteristics
     From the docs:
-    "Het element measurementSpecificCharacteristics komt per meetlocatie één of meer
-    keren voor en beschrijft steeds een meetpunt-gegevenstype-voertuigcategorie–trio"
+    Het element measurementSpecificCharacteristics komt per meetlocatie een of meer
+    keren voor en beschrijft steeds een meetpunt, gegevenstype, voertuigcategorie trio
 
     #Combining measurement site data:
     specificMeasurementCharacteristic (measurement point info) and measurementValue (a measured value)
