@@ -11,6 +11,7 @@ except:
     import xml.etree.ElementTree as etree
 import time
 import gzip
+import datetime
 #For HTTP last modified header parsing
 import email.utils as eut
 from subprocess import Popen, PIPE
@@ -71,8 +72,8 @@ def fetch(interval, outputdir, hdfs):
                 gzipped = gzip.GzipFile(filename=None, mode=None, compresslevel=9, fileobj=f, mtime=None)
                 #unzipped = gzip.decompress(r.content)
                 unzipped = gzipped.read()
-                date = list(eut.parsedate(lastModified))
-                outputfile = os.path.join(outputdir, 'ndw_trafficspeed_{}_{}_{}_{}_{}_{}.csv'.format(*date[:6]))
+                date = datetime.datetime(*list(eut.parsedate(lastModified))[:6])
+                outputfile = os.path.join(outputdir, 'ndw_trafficspeed_{:%Y_%m_%d_%H_%M_%S}.csv'.format(date))
                 if hdfs:
                     with io.BytesIO() as out:
                         p = Popen(["hdfs", "dfs", "-put", "-", outputfile], stdin=PIPE)
