@@ -82,6 +82,8 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
                 csvrow = [msmSite, index, msmTime, msmType, value]
                 if measurementCharacteristic is not None:
                     csvrow.append(measurementSiteData['measurementSiteName'])
+                    csvrow.append(measurementSiteData['latitude'])
+                    csvrow.append(measurementSiteData['longitude'])
                     csvrow.append(measurementSiteData['nrOfLanes'])
                     csvrow.append(measurementCharacteristic['specificLane'])
                     csvrow.append(measurementCharacteristic['period'])
@@ -103,6 +105,8 @@ def measurementSiteXMLToDict(root):
                             'measurementSiteId': siteID,
                             'measurementSiteName': msmSiteName,
                             'nrOfLanes': nrOfLanes,
+                            'latitude': latitude,
+                            'longitude': longitude,
                             'measurementSpecificCharacteristics':
                                 {
                                     <index> :
@@ -125,6 +129,13 @@ def measurementSiteXMLToDict(root):
     output = {}
     msmSiteTable = root[0][0][1].find('{http://datex2.eu/schema/2/2_0}measurementSiteTable')
     for msmSiteRecord in msmSiteTable.findall('{http://datex2.eu/schema/2/2_0}measurementSiteRecord'):
+        measurementSiteLocation = msmSiteRecord.find('{http://datex2.eu/schema/2/2_0}measurementSiteLocation')
+        locationForDisplay = measurementSiteLocation.find('{http://datex2.eu/schema/2/2_0}locationForDisplay')
+        latitude = None
+        longitude = None
+        if locationForDisplay is not None:
+            latitude = locationForDisplay.find('{http://datex2.eu/schema/2/2_0}latitude').text
+            longitude = locationForDisplay.find('{http://datex2.eu/schema/2/2_0}longitude').text
         siteID = msmSiteRecord.attrib['id']
         msmSiteName = msmSiteRecord.find('{http://datex2.eu/schema/2/2_0}measurementSiteName')\
             .find('{http://datex2.eu/schema/2/2_0}values')\
@@ -138,6 +149,8 @@ def measurementSiteXMLToDict(root):
         output[siteID] = {'measurementSiteId': siteID,
                           'measurementSiteName': msmSiteName,
                           'nrOfLanes': nrOfLanes,
+                          'latitude': latitude,
+                          'longitude': longitude,
                           'measurementSpecificCharacteristics': {}
                           }
         for msmChar in characteristics:
