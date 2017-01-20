@@ -1,7 +1,6 @@
 #http://www.diveintopython3.net/xml.html
 
-import click
-import requests
+#Standard lib import
 import io
 import os
 #lxml's etree implemenation is faster but not always available
@@ -15,11 +14,48 @@ import datetime
 #For HTTP last modified header parsing
 import email.utils as eut
 from subprocess import Popen, PIPE
+#External imports
+import overpy
+import click
+import requests
 
 @click.group()
 def cli():
     pass
 
+
+@click.command()
+def testgetspeed():
+    getMaxSpeedRoad(52.0265, 4.68309)
+
+def getMaxSpeedRoad(latitude, longitude, radius=5):
+    """
+    Use the OpenStreetMaps Overpass QL API to get the maximum speed of the road at the given coordinates
+
+    Link: http://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL
+    Link: https://github.com/DinoTools/python-overpy
+
+    :param latitude: WD84 latitude
+    :param longitude: WD84 longitude
+    :return:
+    """
+    api = overpy.Overpass()
+    radius = radius
+    #Only search for primary and secondary roads with a maxspeed tag
+    query = "way (around:{},{},{}) [\"highway\"=\"primary\"] [\"highway\"=\"secondary\"] [\"maxspeed\"]; out body;".format(radius, latitude, longitude)
+    # fetch all ways and nodes
+    response = api.query(query)
+    #match a road for the coordinates, 2 roads can be two directions of one road, more than 3 is undecidable
+    length = len(response.ways)
+    result = None
+    if length == 1:
+        result = response.ways[0].tags.get("maxspeed")
+    elif length == 2: #possibly two directions of the same road, check if the maxspeed is equal, that's the only thing that matters
+        #response.ways[0].tags.get("name", "1") == response.ways[1].tags.get("name", "2") -> not necessary
+        if response.ways[0].tags.get("maxspeed") == response.ways[1].tags.get("maxspeed") and response.ways[0].tags.get("maxspeed") != "":
+            result = response.ways[0].tags.get("maxspeed")
+    print(result)
+    return result
 
 def trafficSpeedXMLToCSV(root, outfile, siteData=None):
     """
@@ -84,6 +120,7 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
                     csvrow.append(measurementSiteData['measurementSiteName'])
                     csvrow.append(measurementSiteData['latitude'])
                     csvrow.append(measurementSiteData['longitude'])
+                    csvrow.append(measurementSiteData['maxspeed'])
                     csvrow.append(measurementSiteData['nrOfLanes'])
                     csvrow.append(measurementCharacteristic['specificLane'])
                     csvrow.append(measurementCharacteristic['period'])
@@ -107,6 +144,7 @@ def measurementSiteXMLToDict(root):
                             'nrOfLanes': nrOfLanes,
                             'latitude': latitude,
                             'longitude': longitude,
+                            'maxspeed': 'maxspeed',
                             'measurementSpecificCharacteristics':
                                 {
                                     <index> :
@@ -133,9 +171,15 @@ def measurementSiteXMLToDict(root):
         locationForDisplay = measurementSiteLocation.find('{http://datex2.eu/schema/2/2_0}locationForDisplay')
         latitude = None
         longitude = None
+        maxspeed = None
+        #check if the gps location is available and fetch the maximum speed using these coordinates
         if locationForDisplay is not None:
             latitude = locationForDisplay.find('{http://datex2.eu/schema/2/2_0}latitude').text
             longitude = locationForDisplay.find('{http://datex2.eu/schema/2/2_0}longitude').text
+            maxspeed = getMaxSpeedRoad(latitude, longitude)
+
+        if maxspeed is None:
+            print('maxspeed not found')
         siteID = msmSiteRecord.attrib['id']
         msmSiteName = msmSiteRecord.find('{http://datex2.eu/schema/2/2_0}measurementSiteName')\
             .find('{http://datex2.eu/schema/2/2_0}values')\
@@ -151,6 +195,7 @@ def measurementSiteXMLToDict(root):
                           'nrOfLanes': nrOfLanes,
                           'latitude': latitude,
                           'longitude': longitude,
+                          'maxspeed': maxspeed,
                           'measurementSpecificCharacteristics': {}
                           }
         for msmChar in characteristics:
@@ -202,7 +247,7 @@ def fetch(interval, outputdir, sitexml, hdfs):
     if sitexml:
         siteDataRoot = etree.parse(sitexml).getroot()
         siteData = measurementSiteXMLToDict(siteDataRoot)
-        print('Parsed site data XML')
+        print('Parsed measurement site data XML')
     else:
         print('No additional site data provided')
     while(True):
@@ -247,4 +292,5 @@ if __name__ == "__main__":
     cli.add_command(convert)
     cli.add_command(msmconvert)
     cli.add_command(fetch)
+    cli.add_command(testgetspeed)
     cli()
