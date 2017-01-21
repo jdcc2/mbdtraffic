@@ -45,6 +45,7 @@ def doJob(rdd):
     #get the rows were the vehiclespeed is low and the flow > 10
     #(K, (speed, flow))
     #check that the second part of the value tuple is actually a flow measurement
+    #TODO to get all rows with a flow > 10 vehicles per minute, look at the period and devide the value by hour/period because the value indicates vehicles per hour
     jams = merged.filter(lambda pair: pair[1][1][columns['measurementType']] == 'TrafficFlow' and int(pair[1][1][columns['value']]) >= 10 )
 
     #TODO convert the remaining rows in a suitable data point for display

@@ -1,4 +1,4 @@
-This document describe ways to access and use the Hadoop Cluster of the University of Twente, called CTIT cluster.
+n This document describe ways to access and use the Hadoop Cluster of the University of Twente, called CTIT cluster.
 
 # Cluster Structure
 
