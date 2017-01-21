@@ -18,6 +18,8 @@ from subprocess import Popen, PIPE
 import overpy
 import click
 import requests
+import json
+from collections import OrderedDict
 
 @click.group()
 def cli():
@@ -54,7 +56,6 @@ def getMaxSpeedRoad(latitude, longitude, radius=5):
         #response.ways[0].tags.get("name", "1") == response.ways[1].tags.get("name", "2") -> not necessary
         if response.ways[0].tags.get("maxspeed") == response.ways[1].tags.get("maxspeed") and response.ways[0].tags.get("maxspeed") != "":
             result = response.ways[0].tags.get("maxspeed")
-    print(result)
     return result
 
 def trafficSpeedXMLToCSV(root, outfile, siteData=None):
@@ -62,7 +63,7 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
     Take an etree xml root and write valid ndw data to a csv row in file
 
     #Output CSV file row format(between braces is only in the output when siteData is available):
-    measurementSiteId, measurementIndex, measurementTime, measurementType, value, measurementSiteName, nrOfLanes, period
+    measurementSiteId, measurementIndex, measurementTime, measurementType, value, measurementSiteName, latitude, longitude, maxspeed, nrOfLanes, specificLane, period, vehicleClass
 
     #measurementSpecificCharacteristics
     From the docs:
@@ -115,7 +116,9 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
                 #Combine additional measurement site data if availale
                 if measurementSiteData is not None and index in measurementSiteData['measurementSpecificCharacteristics']:
                     measurementCharacteristic = measurementSiteData['measurementSpecificCharacteristics'][index]
+
                 csvrow = [msmSite, index, msmTime, msmType, value]
+
                 if measurementCharacteristic is not None:
                     csvrow.append(measurementSiteData['measurementSiteName'])
                     csvrow.append(measurementSiteData['latitude'])
@@ -134,7 +137,9 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
     print('Number of lines produced: {}'.format(success))
     print('Number of measurements with omitted due to error: {}'.format(errors))
 
-def measurementSiteXMLToDict(root):
+
+def measurementSiteXMLToDict(root, enablemaxspeed=False):
+    #NOTE: Usually querying the Overpass API for the max speed of  all measurement locations times out
     """
     Parse the measurement site XML from the NDW open data and return a dict structured as follows:
     { <siteID> :    {
@@ -166,9 +171,17 @@ def measurementSiteXMLToDict(root):
     #Extract the measurement site table (file assumed to contain only one) from the payload element
     output = {}
     msmSiteTable = root[0][0][1].find('{http://datex2.eu/schema/2/2_0}measurementSiteTable')
+    records = msmSiteTable.findall('{http://datex2.eu/schema/2/2_0}measurementSiteRecord')
+    total = len(records)
+    current = 0
+    haslocation = 0
+    hasmaxspeed = 0
+    print('%s / %s' % (current, total))
     for msmSiteRecord in msmSiteTable.findall('{http://datex2.eu/schema/2/2_0}measurementSiteRecord'):
         measurementSiteLocation = msmSiteRecord.find('{http://datex2.eu/schema/2/2_0}measurementSiteLocation')
         locationForDisplay = measurementSiteLocation.find('{http://datex2.eu/schema/2/2_0}locationForDisplay')
+        current += 1
+        print('%s / %s' % (current, total))
         latitude = None
         longitude = None
         maxspeed = None
@@ -176,10 +189,11 @@ def measurementSiteXMLToDict(root):
         if locationForDisplay is not None:
             latitude = locationForDisplay.find('{http://datex2.eu/schema/2/2_0}latitude').text
             longitude = locationForDisplay.find('{http://datex2.eu/schema/2/2_0}longitude').text
-            maxspeed = getMaxSpeedRoad(latitude, longitude)
-
-        if maxspeed is None:
-            print('maxspeed not found')
+            if enablemaxspeed:
+                maxspeed = getMaxSpeedRoad(latitude, longitude)
+            haslocation += 1
+        if maxspeed is not None:
+            hasmaxspeed += 1
         siteID = msmSiteRecord.attrib['id']
         msmSiteName = msmSiteRecord.find('{http://datex2.eu/schema/2/2_0}measurementSiteName')\
             .find('{http://datex2.eu/schema/2/2_0}values')\
@@ -224,27 +238,50 @@ def measurementSiteXMLToDict(root):
                                                                            'specificMeasurementValueType': specificMeasurementValueType,
                                                                            'vehicleClass': vehicleClass
                                                                            }
+    print('Total number of measurement sites: %s' % total)
+    print('Number of sites with location: %s' % haslocation)
+    print('Number of sites with maximum speed: %s' % hasmaxspeed)
     return output
 
 @click.command()
+def csvheader():
+    """
+    Note maxspeed header is not included
+
+    :return:
+    """
+    columns = ['measurementSiteId', 'measurementIndex', 'measurementTime', 'measurementType', 'value', 'measurementSiteName', 'latitude', 'longitude', 'nrOfLanes', 'specificLane', 'period', 'vehicleClass']
+    headersToColumns = OrderedDict()
+    for index, item in enumerate(columns):
+        headersToColumns[item] = index
+    print(json.dumps(headersToColumns, indent=4))
+    #print({item: index for index, item in enumerate(columns)})
+
+@click.command(help='Convert NDW measurement site XML to JSON and try to add the maximum speed to the measurement locations')
 @click.argument('xmlinput')
-def msmconvert(xmlinput):
+@click.argument('outputfile')
+def msmsitejson(xmlinput, outputfile):
     tree = etree.parse(xmlinput)
     root = tree.getroot()
-    #with open(csvoutput, 'w') as outfile:
-    print(measurementSiteXMLToDict(root))
+    # with open(csvoutput, 'w') as outfile:
+    with open(outputfile, 'w') as out:
+        json.dump(measurementSiteXMLToDict(root), out, indent=4)
 
 
 @click.command()
 @click.option('--interval', default=60, help='fetch interval')
 @click.option('--outputdir', default='./', help='directory to write the csv files to')
 @click.option('--sitexml', default=None, help='path to XML file containing additional measurement site data to enrich measurement data')
+@click.option('--sitejson', default=None, help='path to JSON file containing additional measurement site data to enrich measurement data')
 @click.option('--hdfs', default=False, is_flag=True, help='write the file hdfs in outputdir')
-def fetch(interval, outputdir, sitexml, hdfs):
+def fetch(interval, outputdir, sitexml, sitejson, hdfs):
     print('Fetching traffic data every {} seconds'.format(interval))
     lastModified = None
     siteData = None
-    if sitexml:
+    if sitejson:
+        with open(sitejson, 'r') as sitejsonfile:
+            siteData = json.loads(sitejsonfile.read())
+    elif sitexml:
         siteDataRoot = etree.parse(sitexml).getroot()
         siteData = measurementSiteXMLToDict(siteDataRoot)
         print('Parsed measurement site data XML')
@@ -290,7 +327,8 @@ def convert(xmlinput, csvoutput):
 
 if __name__ == "__main__":
     cli.add_command(convert)
-    cli.add_command(msmconvert)
     cli.add_command(fetch)
     cli.add_command(testgetspeed)
+    cli.add_command(msmsitejson)
+    cli.add_command(csvheader)
     cli()
