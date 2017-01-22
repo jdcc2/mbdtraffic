@@ -53,22 +53,32 @@ def doJob(rdd):
     #so look at he value and the period to calculate the actual in the measurement
     #NOTE maybe exclude data points that have a period greater than 60 seconds, as data is retrieved every 60 seconds and duplicates may occur
     #(not sure about this, maybe these longer period measurements do not show up every minutes in the measurements file)
-    print('Jams: ', jams.count())
+    #print('Jams: ', jams.count())
+
     #output dict -> {'siteid', 'time', 'sitename', 'latitude', 'longitude', 'lane', 'nroflanes', 'avgspeed', 'flowpermin', 'period', }
-    formattedJams = jams.map(lambda pair: {'measurementSiteId': pair[1][0][columns['measurementSiteId']],
+    #outputs a tuple with the measurment time as the key, and a dict with all info as the value
+    formattedJams = jams.map(lambda pair: (pair[1][0][columns['measurementTime']],
+                                            {'measurementSiteId': pair[1][0][columns['measurementSiteId']],
                                              'measurementTime': pair[1][0][columns['measurementTime']],
                                              'measurementSiteName': pair[1][0][columns['measurementSiteName']],
-                                             'latitude': pair[1][0][columns['latitude']],
-                                             'longitude': pair[1][0][columns['longitude']],
+                                             'latitude': float(pair[1][0][columns['latitude']]),
+                                             'longitude': float(pair[1][0][columns['longitude']]),
                                              'lane': pair[1][0][columns['specificLane']],
                                              'nrOfLanes': pair[1][0][columns['nrOfLanes']],
                                              'averageSpeed': float(pair[1][0][columns['value']]),
                                              'averageFlow': int(pair[1][1][columns['value']]) / (3600 / float(pair[1][1][columns['period']])),
-                                             'period': float(pair[1][1][columns['period']])})
+                                             'period': float(pair[1][1][columns['period']])}))\
+        .groupByKey()\
+        .sortByKey(True) #sort in ascending order
     print('done3')
     print(formattedJams.count())
-    for item in formattedJams.take(15):
+    first = formattedJams.first()
+    print(first[0])
+    for item in first[1]:
         print(item)
+
+    # for item in formattedJams.take(15):
+    #     print(item)
     return formattedJams
 
 def main():
