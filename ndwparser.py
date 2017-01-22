@@ -66,6 +66,7 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
     measurementSiteId, measurementIndex, measurementTime, measurementType, value, measurementSiteName, latitude, longitude, maxspeed, nrOfLanes, specificLane, period, vehicleClass
 
     #measurementSpecificCharacteristics
+    location, time, msmType, vehicle class, lane combo
     From the docs:
     Het element measurementSpecificCharacteristics komt per meetlocatie een of meer
     keren voor en beschrijft steeds een meetpunt, gegevenstype, voertuigcategorie trio
@@ -73,6 +74,10 @@ def trafficSpeedXMLToCSV(root, outfile, siteData=None):
     #Combining measurement site data:
     specificMeasurementCharacteristic (measurement point info) and measurementValue (a measured value)
     both contain an index property which is used to match them together
+    From the docs:
+    De verkeersgegevens voor een meetpunt worden vastgelegd in één of meer
+    measuredValue elementen. Elk element verwijst (middels het verplichte attribuut index)
+    naar de bijbehorende measurementSpecificCharacteristics
 
     :param root: etree XML root of a NDW trafficspeed measurement XML file
     :param outfile: path to write the output CSV to

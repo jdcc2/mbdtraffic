@@ -30,35 +30,46 @@ def doJob(rdd):
     }
     print('start')
     #rows with a trafficspeed value of -1 shoudl be excluded
-    #rows with an average vehicle speed <= 60 and > 0 (class anyVehicle is all vehicles)
+    #rows with an average vehicle speed <= 35 and > 0 (class anyVehicle is all vehicles)
     split = rdd.map(lambda line: line.split(','))
-    vsLow = split.filter(lambda row: row[columns['measurementType']] == 'TrafficSpeed' and row[columns['vehicleClass']] == 'anyVehicle' and float(row[columns['value']]) <= 60 and float(row[columns['value']]) > 30)
+    vsLow = split.filter(lambda row: row[columns['measurementType']] == 'TrafficSpeed' and row[columns['vehicleClass']] == 'anyVehicle' and float(row[columns['value']]) <= 35 and float(row[columns['value']]) > 30)
     #all rows with flow measurements for all vehicle types
     flows = split.filter(lambda row: row[columns['measurementType']] == 'TrafficFlow' and row[columns['vehicleClass']] == 'anyVehicle')
 
-    #convert both rdds to key/value pairs with the measurement location id and time as the keys and the rows as the value
-    vslowkv = vsLow.map(lambda row: (row[columns['measurementSiteId']] + row[columns['measurementTime']], row))
-    flowskv = flows.map(lambda row: (row[columns['measurementSiteId']] + row[columns['measurementTime']], row))
+    #convert both rdds to key/value pairs with the measurement location id, time, lane as the keys and the rows as the value
+    vslowkv = vsLow.map(lambda row: (row[columns['measurementSiteId']] + row[columns['measurementTime']] + row[columns['specificLane']], row))
+    flowskv = flows.map(lambda row: (row[columns['measurementSiteId']] + row[columns['measurementTime']] + row[columns['specificLane']], row))
 
     merged = vslowkv.join(flowskv)
 
     #get the rows were the vehiclespeed is low and the flow > 10
-    #(K, (speed, flow))
+    #(K, (speedrow, flowrow)) -> K = siteId + timeID combination
     #check that the second part of the value tuple is actually a flow measurement
-    #TODO to get all rows with a flow > 10 vehicles per minute, look at the period and devide the value by hour/period because the value indicates vehicles per hour
-    jams = merged.filter(lambda pair: pair[1][1][columns['measurementType']] == 'TrafficFlow' and int(pair[1][1][columns['value']]) >= 10 )
+    #flow measurment is vehicle per hour, convert to vehicles per minute, using the measurement period
+    jams = merged.filter(lambda pair: pair[1][1][columns['measurementType']] == 'TrafficFlow' and int(pair[1][1][columns['value']]) / (3600 / float(pair[1][1][columns['period']])) >= 10)
 
     #TODO convert the remaining rows in a suitable data point for display
     #NOTE the value in TrafficFlow flow is amount of vehicles that would have passed in an hour if the flow continued like the currently measured period
     #so look at he value and the period to calculate the actual in the measurement
     #NOTE maybe exclude data points that have a period greater than 60 seconds, as data is retrieved every 60 seconds and duplicates may occur
     #(not sure about this, maybe these longer period measurements do not show up every minutes in the measurements file)
-
-    print('done')
-    print(jams.count())
-    for item in jams.take(15):
-        print(item[0], item[1][0], item[1][1])
-    return jams
+    print('Jams: ', jams.count())
+    #output dict -> {'siteid', 'time', 'sitename', 'latitude', 'longitude', 'lane', 'nroflanes', 'avgspeed', 'flowpermin', 'period', }
+    formattedJams = jams.map(lambda pair: {'measurementSiteId': pair[1][0][columns['measurementSiteId']],
+                                             'measurementTime': pair[1][0][columns['measurementTime']],
+                                             'measurementSiteName': pair[1][0][columns['measurementSiteName']],
+                                             'latitude': pair[1][0][columns['latitude']],
+                                             'longitude': pair[1][0][columns['longitude']],
+                                             'lane': pair[1][0][columns['specificLane']],
+                                             'nrOfLanes': pair[1][0][columns['nrOfLanes']],
+                                             'averageSpeed': float(pair[1][0][columns['value']]),
+                                             'averageFlow': int(pair[1][1][columns['value']]) / (3600 / float(pair[1][1][columns['period']])),
+                                             'period': float(pair[1][1][columns['period']])})
+    print('done3')
+    print(formattedJams.count())
+    for item in formattedJams.take(15):
+        print(item)
+    return formattedJams
 
 def main():
     # parse arguments
