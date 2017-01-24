@@ -306,12 +306,12 @@ def fetch(interval, outputdir, sitexml, sitejson, hdfs):
                 date = datetime.datetime(*list(eut.parsedate(lastModified))[:6])
                 outputfile = os.path.join(outputdir, 'ndw_trafficspeed_{:%Y_%m_%d_%H_%M_%S}.csv'.format(date))
                 if hdfs:
-                    with io.BytesIO() as out:
-                        p = Popen(["hdfs", "dfs", "-put", "-", outputfile], stdin=PIPE)
-                        trafficSpeedXMLToCSV(etree.fromstring(unzipped), p.stdin, siteData=siteData)
-                        p.stdin.close()
-                        p.wait()
-                        #p.flush()
+
+                    p = Popen(["hdfs", "dfs", "-put", "-", outputfile], stdin=PIPE)
+                    trafficSpeedXMLToCSV(etree.fromstring(unzipped), p.stdin, siteData=siteData)
+                    p.stdin.close()
+                    p.wait()
+                    #p.flush()
                 else:
 
                     with open(outputfile, 'w') as out:

@@ -3,6 +3,8 @@ import sys
 import os
 import json
 import pyspark
+from subprocess import Popen, PIPE
+import io
 
 # add actual job
 def doJob(rdd):
@@ -56,8 +58,8 @@ def doJob(rdd):
     #print('Jams: ', jams.count())
 
     #output dict -> {'siteid', 'time', 'sitename', 'latitude', 'longitude', 'lane', 'nroflanes', 'avgspeed', 'flowpermin', 'period', }
-    #outputs a tuple with the measurment time as the key, and a dict with all info as the value
-    formattedJams = jams.map(lambda pair: (pair[1][0][columns['measurementTime']],
+    #outputs a tuple with the measurment site id as the key, and a dict with all info as the value
+    formattedJams = jams.map(lambda pair: (pair[1][0][columns['measurementSiteId']],
                                             {'measurementSiteId': pair[1][0][columns['measurementSiteId']],
                                              'measurementTime': pair[1][0][columns['measurementTime']],
                                              'measurementSiteName': pair[1][0][columns['measurementSiteName']],
@@ -69,14 +71,11 @@ def doJob(rdd):
                                              'averageFlow': int(pair[1][1][columns['value']]) / (3600 / float(pair[1][1][columns['period']])),
                                              'period': float(pair[1][1][columns['period']])}))\
         .groupByKey()\
-        .sortByKey(True) #sort in ascending order
-    print('done3')
-    print(formattedJams.count())
-    first = formattedJams.first()
-    print(first[0])
-    for item in first[1]:
-        print(item)
+        .map(lambda pair: json.dumps({pair[0]: list(pair[1])})) \
+        .reduce(lambda x, y: x + ", \n" + y)
 
+    print('done3')
+    #print(formattedJams)
     # for item in formattedJams.take(15):
     #     print(item)
     return formattedJams
@@ -87,9 +86,15 @@ def main():
 
     conf = pyspark.SparkConf().setAppName("%s %s %s" % (os.path.basename(__file__), in_dir, out_dir))
     sc = pyspark.SparkContext(conf=conf)
-
     # invoke job and put into output directory
-    doJob(sc.textFile(in_dir)).saveAsTextFile(out_dir)
+    json = doJob(sc.textFile(in_dir))
+    print('[ ' + json + ']')
+
+    p = Popen(["hdfs", "dfs", "-put", "-", os.path.join(out_dir, 'out.json')], stdin=PIPE)
+    p.stdin.write('[ ' + json + ']')
+    p.stdin.close()
+    p.wait()
+    print('written')
 
 if __name__ == '__main__':
     main()
