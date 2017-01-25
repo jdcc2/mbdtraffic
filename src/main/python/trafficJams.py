@@ -71,7 +71,7 @@ def doJob(rdd):
                                              'averageFlow': int(pair[1][1][columns['value']]) / (3600 / float(pair[1][1][columns['period']])),
                                              'period': float(pair[1][1][columns['period']])}))\
         .groupByKey()\
-        .map(lambda pair: json.dumps({pair[0]: list(pair[1])})) \
+        .map(lambda pair: json.dumps({'measurementSiteId': pair[0], 'trafficJams': list(pair[1])})) \
         .reduce(lambda x, y: x + ", \n" + y)
 
     print('done3')
